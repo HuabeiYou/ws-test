@@ -3,7 +3,7 @@ const { Server } = require('socket.io')
 
 const io = new Server(process.env.PORT, {
   cors: {
-    origin: 'http://localhost:3000',
+    origin: 'http://localhost:5000',
     credentials: true
   },
 })
