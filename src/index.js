@@ -1,15 +1,22 @@
 require('dotenv').config()
-const { Server } = require('socket.io')
+const { WebSocketServer } = require('ws')
 
-const io = new Server(process.env.PORT, {
-  cors: {
-    origin: 'http://localhost:5000',
-    credentials: true
-  },
-})
-io.on('connection', (socket) => {
-  socket.on('connected', ({ session, student }) => {
-    socket.join(student)
-    io.to(student).emit('user joined', session)
+const wss = new WebSocketServer({ port: process.env.PORT })
+wss.on('connection', (socket) => {
+  console.log(`Current connection count:`, wss.clients.size)
+  socket.on('message', (data) => {
+    const payload = JSON.parse(data)
+    if (payload.event === 'connected') {
+      socket.room = payload.student
+      const message = JSON.stringify({
+        event: 'user joined',
+        data: payload.session
+      })
+      wss.clients.forEach((client) => {
+        if (client.room === payload.student) {
+          client.send(message)
+        }
+      })
+    }
   })
 })
