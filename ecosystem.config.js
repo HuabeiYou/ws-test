@@ -1,10 +1,10 @@
 module.exports = {
   apps: [
     {
-      name: 'socket.io',
+      name: 'wss',
       script: 'npm',
-      args: 'start',
-      max_memory_restart: '2G',
+      args: 'run dev',
+      max_memory_restart: '2048M',
     },
   ],
 }
