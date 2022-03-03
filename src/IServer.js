@@ -46,7 +46,7 @@ module.exports = class IServer extends EventEmitter {
       clientDebug('Received message %s from %s', data, socket.id)
       const message = JSON.parse(data)
       if (message.event === 'ping') {
-        socket.send('pong')
+        socket.send(JSON.stringify(process.memoryUsage()))
         this.connections.add(socket.id)
       }
       if (message.event === 'connected') {

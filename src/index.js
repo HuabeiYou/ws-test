@@ -2,7 +2,7 @@ require('dotenv').config()
 const IServer = require('./IServer')
 
 const port = process.env.PORT || 9000
-const pingTimeout = process.env.PING_TIMEOUT || 50000 // 50 seconds
+const pingTimeout = process.env.PING_TIMEOUT || 60000 // 60 seconds
 const server = new IServer({ port })
 server.on('error', (err) => {
   console.error(err)
