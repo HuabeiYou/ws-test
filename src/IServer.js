@@ -5,6 +5,10 @@ const debug = require('debug')
 const wssDebug = debug('wss')
 const clientDebug = debug('client')
 
+const EVENT_PAYLOAD = {
+  'pong': JSON.stringify({ event: 'pong' })
+}
+
 module.exports = class IServer extends EventEmitter {
   constructor(props) {
     super(props)
@@ -46,7 +50,7 @@ module.exports = class IServer extends EventEmitter {
       clientDebug('Received message %s from %s', data, socket.id)
       const message = JSON.parse(data)
       if (message.event === 'ping') {
-        socket.send(JSON.stringify(process.memoryUsage()))
+        socket.send(EVENT_PAYLOAD.pong)
         this.connections.add(socket.id)
       }
       if (message.event === 'connected') {
