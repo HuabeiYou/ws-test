@@ -1,94 +1,98 @@
 const { writeFileSync } = require('fs')
 const WebSocket = require('ws')
+const { mapToCSV, WaitingRoom } = require('./utils')
 const SERVER_URL = 'ws://137.184.236.245:9000'
-const INCREMENT = 1000
-const MAX_CLIENTS = INCREMENT * 5
-const TARGET_SAMPLE_SIZE = MAX_CLIENTS
-// all time variables are in the unit of milliseconds
-const CONNECT_INTERVAL = 10
+const INCREMENT = 100
+const MAX_CLIENTS = INCREMENT * 10
 const MESSAGE = JSON.stringify({ event: 'ping' })
+// all time variables are in the unit of milliseconds
+const TARGET_SAMPLE_SIZE = 5000
 
-const mapToCSV = (mapObj) => {
-  const csvArr = []
-  mapObj.forEach((value, key) => {
-    csvArr.push(`${key},${value}`)
+const clients = new Set()
+const connectTime = new Map()
+const roundTripTime = new Map()
+const connectingRoom = new WaitingRoom()
+const messagingRoom = new WaitingRoom()
+
+function createClient(index) {
+  connectingRoom.add(index)
+  const ws = new WebSocket(SERVER_URL, {
+    perMessageDeflate: false,
   })
-  return csvArr.join('\n')
+  ws.index = index
+  ws.createdAt = Date.now()
+  ws.on('message', function (data) {
+    const message = JSON.parse(data)
+    if (message.event === 'open') {
+      this.id = message.id
+      const timeLapse = Date.now() - this.createdAt
+      this.emit('server connected', { index: this.index, timeLapse })
+    } else if (message.event === 'pong') {
+      const timeLapse = Date.now() - this.lastMessageSentAt
+      this.emit('pong received', { id: this.id, timeLapse })
+    }
+  })
+  return ws
 }
 
-async function loadTest() {
-  const clients = new Set()
-  const connectTime = new Map()
-  for (
-    let targetClientSize = INCREMENT;
-    targetClientSize <= MAX_CLIENTS;
-    targetClientSize += INCREMENT
-  ) {
-    const messageInterval = targetClientSize * CONNECT_INTERVAL
-    console.log(`Start testing ${targetClientSize} clients...`)
-    // First we increase total client count
-    const measurements = []
-    while (clients.size < targetClientSize) {
-      const ws = new WebSocket(SERVER_URL, {
-        perMessageDeflate: false,
-      })
-      ws.index = clients.size
-      ws.createdAt = Date.now()
-      ws.on('message', (data) => {
-        const message = JSON.parse(data)
-        if (message.event === 'open') {
-          connectTime.set(ws.index, Date.now() - ws.createdAt)
-          ws.id = message.id
-        } else if (message.event === 'pong' && ws.lastMessageSentAt) {
-          measurements.push(Date.now() - ws.lastMessageSentAt)
-          ws.lastMessageSentAt = 0
-        }
-      })
-      clients.add(ws)
-      await new Promise((resolve) => {
-        setTimeout(resolve, CONNECT_INTERVAL)
-      })
-    }
-    console.log(`Client set populated, current count: ${clients.size}`)
-    // wait a little bit to make sure all connections are established
-    await new Promise((resolve) => {
-      setTimeout(resolve, messageInterval)
-    })
-    // taking measurements
-    const maxSampleCount = Math.floor(TARGET_SAMPLE_SIZE / targetClientSize)
-    console.log(`maxSampleCount: ${maxSampleCount}`)
-    for (let i = 0; i < maxSampleCount; i++) {
-      console.log('sample #', i + 1)
-      let count = 0
-      clients.forEach((client) => {
-        client.lastMessageSentAt = Date.now()
-        client.send(MESSAGE)
-        count += 1
-      })
-      console.log(count, 'messages sent')
-      await new Promise((resolve) => {
-        setTimeout(resolve, messageInterval)
-      })
-      console.log('current measurement count:', measurements.length)
-    }
-    console.log(`${measurements.length} measurements collected`)
-    writeFileSync(
-      `RoundTripTime_${targetClientSize}.txt`,
-      measurements.join('\n')
-    )
-    console.log(`Test with ${targetClientSize} clients has finished.`)
-  }
-  writeFileSync(`ConnectTime.txt`, mapToCSV(connectTime))
-  // tear down
+async function setupTest(targetClientSize) {
+  roundTripTime.set(targetClientSize, [])
+  console.log(`Start testing with ${targetClientSize} clients...`)
   clients.forEach((ws) => {
-    ws.close()
+    ws.targetClientSize = targetClientSize
   })
-  clients.clear()
+  // First we increase total client count
+  while (clients.size < targetClientSize) {
+    const ws = createClient(clients.size + 1)
+    ws.targetClientSize = targetClientSize
+    ws.on('server connected', function (e) {
+      connectTime.set(e.index, e.timeLapse)
+      connectingRoom.delete(e.index)
+    })
+    ws.on('pong received', function (e) {
+      roundTripTime.get(this.targetClientSize).push(e.timeLapse)
+      if (
+        roundTripTime.get(this.targetClientSize).length < TARGET_SAMPLE_SIZE
+      ) {
+        this.lastMessageSentAt = Date.now()
+        this.send(MESSAGE)
+      } else {
+        messagingRoom.delete(this.id)
+      }
+    })
+    clients.add(ws)
+  }
 }
 
 async function main() {
-  await loadTest()
-  process.exit(0)
+  let targetClientSize = INCREMENT
+  await setupTest(targetClientSize)
+  connectingRoom.on('room cleared', () => {
+    console.log(`All clients connected, current count: ${clients.size}`)
+    clients.forEach((ws) => {
+      messagingRoom.add(ws.id)
+      ws.lastMessageSentAt = Date.now()
+      ws.send(MESSAGE)
+    })
+  })
+  messagingRoom.on('room cleared', async () => {
+    writeFileSync(
+      `RoundTripTime_${targetClientSize}.txt`,
+      roundTripTime.get(targetClientSize).join('\n')
+    )
+    if (targetClientSize < MAX_CLIENTS) {
+      targetClientSize += INCREMENT
+      await setupTest(targetClientSize)
+    } else {
+      console.log('Test has been completed')
+      writeFileSync(`ConnectTime.txt`, mapToCSV(connectTime))
+      clients.forEach((ws) => {
+        ws.close()
+      })
+      clients.clear()
+      process.exit(0)
+    }
+  })
 }
 
 main()
