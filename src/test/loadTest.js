@@ -2,11 +2,11 @@ const { writeFileSync } = require('fs')
 const WebSocket = require('ws')
 const { mapToCSV, WaitingRoom } = require('./utils')
 const SERVER_URL = 'ws://137.184.236.245:9000'
-const INCREMENT = 100
+const INCREMENT = 1000
 const MAX_CLIENTS = INCREMENT * 10
+const TARGET_SAMPLE_SIZE = MAX_CLIENTS
 const MESSAGE = JSON.stringify({ event: 'ping' })
 // all time variables are in the unit of milliseconds
-const TARGET_SAMPLE_SIZE = 5000
 
 const clients = new Set()
 const connectTime = new Map()
@@ -49,8 +49,12 @@ async function setupTest(targetClientSize) {
       connectTime.set(e.index, e.timeLapse)
       connectingRoom.delete(e.index)
     })
-    ws.on('pong received', function (e) {
+    ws.on('pong received', async function (e) {
       roundTripTime.get(this.targetClientSize).push(e.timeLapse)
+      // reduce the overshoot
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1000)
+      })
       if (
         roundTripTime.get(this.targetClientSize).length < TARGET_SAMPLE_SIZE
       ) {
