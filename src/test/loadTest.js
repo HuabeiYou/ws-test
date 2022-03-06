@@ -32,6 +32,10 @@ function createClient(index) {
       this.emit('pong received', { id: this.id, timeLapse })
     }
   })
+  ws.on('eroor', function (e) {
+    console.error(e)
+    ws.close()
+  })
   return ws
 }
 
