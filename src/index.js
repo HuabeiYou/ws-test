@@ -5,9 +5,7 @@ const IServer = require('./IServer')
 const port = process.env.PORT || 9000
 
 if (process.env.NODE_ENV === 'test') {
-  start({
-    graph: true
-  }).then(() => {
+  start().then(() => {
     const server = new IServer({ port })
     server.on('error', (err) => {
       console.error(err)

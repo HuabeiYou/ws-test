@@ -71,6 +71,7 @@ class Test extends EventEmitter {
   }
 
   start() {
+    console.log('New test started...')
     while (this.clients.size < this.targetClientSize) {
       const index = this.clients.size + 1
       this.connectingRoom.add(index)
@@ -79,6 +80,10 @@ class Test extends EventEmitter {
       })
       ws.index = index
       ws.createdAt = Date.now()
+      ws.addEventListener('error', (e) => {
+        this.connectingRoom.delete(ws.index)
+        ws.close()
+      })
       ws.on('message', (data) => {
         const message = JSON.parse(data)
         if (message.event === 'open') {
@@ -89,10 +94,6 @@ class Test extends EventEmitter {
           const timeLapse = Date.now() - ws.lastMessageSentAt
           ws.emit('pong received', { id: ws.id, timeLapse })
         }
-      })
-      ws.on('eroor', (e) => {
-        console.error(e)
-        ws.close()
       })
       ws.on('server connected', (e) => {
         this.connectTime.set(e.index, e.timeLapse)
