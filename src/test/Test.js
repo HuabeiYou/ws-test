@@ -18,14 +18,21 @@ class WaitingRoom extends EventEmitter {
     super(props)
     this.space = new Set()
   }
+
   has(id) {
     return this.space.has(id)
   }
+
   add(id) {
-    this.space.add(id)
+    return this.space.add(id)
   }
+
   delete(id) {
-    this.space.delete(id)
+    return this.space.delete(id)
+  }
+
+  remove(id) {
+    this.delete(id)
     if (this.space.size === 0) {
       this.emit('room cleared')
     }
@@ -45,12 +52,14 @@ class Test extends EventEmitter {
     this.connectingRoom.on('room cleared', async () => {
       console.log('All clients connected, current count:', this.clients.size)
       this.clients.forEach(async (ws) => {
-        this.messagingRoom.add(ws.id)
-        ws.lastMessageSentAt = Date.now()
-        ws.send(MESSAGE)
-        await new Promise((resolve) => {
-          setTimeout(resolve, MESSAGE_INTERVAL)
-        })
+        if (ws.readyState === ws.OPEN) {
+          this.messagingRoom.add(ws.id)
+          ws.lastMessageSentAt = Date.now()
+          ws.send(MESSAGE)
+          await new Promise((resolve) => {
+            setTimeout(resolve, MESSAGE_INTERVAL)
+          })
+        }
       })
     })
     this.messagingRoom.on('room cleared', async () => {
@@ -81,7 +90,9 @@ class Test extends EventEmitter {
       ws.index = index
       ws.createdAt = Date.now()
       ws.addEventListener('error', (e) => {
+        console.log(e.message)
         this.connectingRoom.delete(ws.index)
+        this.messagingRoom.delete(ws.id)
         ws.close()
       })
       ws.on('message', (data) => {
@@ -89,15 +100,15 @@ class Test extends EventEmitter {
         if (message.event === 'open') {
           ws.id = message.id
           const timeLapse = Date.now() - ws.createdAt
-          ws.emit('server connected', { index: ws.index, timeLapse })
+          ws.emit('server connected', { timeLapse })
         } else if (message.event === 'pong') {
           const timeLapse = Date.now() - ws.lastMessageSentAt
-          ws.emit('pong received', { id: ws.id, timeLapse })
+          ws.emit('pong received', { timeLapse })
         }
       })
       ws.on('server connected', (e) => {
-        this.connectTime.set(e.index, e.timeLapse)
-        this.connectingRoom.delete(e.index)
+        this.connectTime.set(ws.index, e.timeLapse)
+        this.connectingRoom.remove(ws.index)
       })
       ws.on('pong received', async (e) => {
         this.roundTripTime.push(e.timeLapse)
@@ -109,7 +120,7 @@ class Test extends EventEmitter {
           ws.lastMessageSentAt = Date.now()
           ws.send(MESSAGE)
         } else {
-          this.messagingRoom.delete(ws.id)
+          this.messagingRoom.remove(ws.id)
         }
       })
       this.clients.add(ws)
