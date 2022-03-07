@@ -1,9 +1,9 @@
 const EventEmitter = require('events')
 const { writeFileSync } = require('fs')
 const WebSocket = require('ws')
-const SERVER_URL = 'ws://137.184.236.245:9000'
+// const SERVER_URL = 'ws://137.184.236.245:9000'
+const SERVER_URL = 'ws://localhost:9000'
 const MESSAGE_INTERVAL = 50
-const MESSAGE = JSON.stringify({ event: 'ping' })
 
 const mapToCSV = (mapObj) => {
   const csvArr = []
@@ -55,7 +55,7 @@ class Test extends EventEmitter {
         if (ws.readyState === ws.OPEN) {
           this.messagingRoom.add(ws.id)
           ws.lastMessageSentAt = Date.now()
-          ws.send(MESSAGE)
+          ws.ping()
           await new Promise((resolve) => {
             setTimeout(resolve, MESSAGE_INTERVAL)
           })
@@ -101,10 +101,11 @@ class Test extends EventEmitter {
           ws.id = message.id
           const timeLapse = Date.now() - ws.createdAt
           ws.emit('server connected', { timeLapse })
-        } else if (message.event === 'pong') {
-          const timeLapse = Date.now() - ws.lastMessageSentAt
-          ws.emit('pong received', { timeLapse })
         }
+      })
+      ws.on('pong', () => {
+        const timeLapse = Date.now() - ws.lastMessageSentAt
+        ws.emit('pong received', { timeLapse })
       })
       ws.on('server connected', (e) => {
         this.connectTime.set(ws.index, e.timeLapse)
@@ -118,7 +119,7 @@ class Test extends EventEmitter {
         })
         if (this.roundTripTime.length < this.targetSampleSize) {
           ws.lastMessageSentAt = Date.now()
-          ws.send(MESSAGE)
+          ws.ping()
         } else {
           this.messagingRoom.remove(ws.id)
         }

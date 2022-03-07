@@ -6,7 +6,7 @@ const wssDebug = debug('wss')
 const clientDebug = debug('client')
 
 const EVENT_PAYLOAD = {
-  'pong': JSON.stringify({ event: 'pong' })
+  pong: JSON.stringify({ event: 'pong' }),
 }
 
 module.exports = class IServer extends EventEmitter {
@@ -29,8 +29,8 @@ module.exports = class IServer extends EventEmitter {
     socket.id = v4()
     this.clients.set(socket.id, socket)
     wssDebug(`Client +1. Current total: ${this.wss.clients.size}`)
-    socket.send(JSON.stringify({ event: 'open', id: socket.id }))
     this._configureSocket(socket)
+    socket.send(JSON.stringify({ event: 'open', id: socket.id }))
   }
 
   _onSocketClose(socket) {
@@ -46,13 +46,13 @@ module.exports = class IServer extends EventEmitter {
 
   _configureSocket(socket) {
     socket.on('close', () => this._onSocketClose(socket))
+    socket.on('ping', () => {
+      this.connections.add(socket.id)
+      socket.emit('pong')
+    })
     socket.on('message', (data) => {
       clientDebug('Received message %s from %s', data, socket.id)
       const message = JSON.parse(data)
-      if (message.event === 'ping') {
-        socket.send(EVENT_PAYLOAD.pong)
-        this.connections.add(socket.id)
-      }
       if (message.event === 'connected') {
         const room = message.student
         if (!this.rooms.has(room)) {

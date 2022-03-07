@@ -1,5 +1,5 @@
 const Test = require('./Test')
-const INCREMENT = 500
+const INCREMENT = 100
 const MAX_CLIENTS = INCREMENT * 10
 
 function runTest(targetClientSize) {
