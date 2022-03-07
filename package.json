@@ -1,22 +1,39 @@
 {
   "name": "savvyuni-peer-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "DEBUG=* nodemon --watch src src/index.js",
-    "start": "node src/index.js"
+    "dev": "NODE_ENV=develop DEBUG=* nodemon --watch src src/index.js",
+    "start": "NODE_ENV=production node src/index.js"
   },
   "author": "Huabei You",
   "license": "ISC",
   "dependencies": {
+    "@airbnb/node-memwatch": "^2.0.0",
     "bufferutil": "^4.0.6",
     "dotenv": "^16.0.0",
+    "node-memwatcher": "^0.1.4",
     "socket.io": "^4.4.1",
     "utf-8-validate": "^5.0.8"
   },
   "devDependencies": {
-    "nodemon": "^2.0.15"
+    "artillery": "^2.0.0-12",
+    "artillery-engine-socketio-v3": "^1.1.2",
+    "eslint": "^8.2.0",
+    "eslint-config-airbnb": "19.0.4",
+    "eslint-config-node": "^4.1.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-import": "^2.25.3",
+    "eslint-plugin-jsx-a11y": "^6.5.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-react": "^7.28.0",
+    "eslint-plugin-react-hooks": "^4.3.0",
+    "nodemon": "^2.0.15",
+    "prettier": "^2.5.1",
+    "socket.io-client": "^4.4.1"
   }
 }
