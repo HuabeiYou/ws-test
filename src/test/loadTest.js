@@ -5,8 +5,8 @@ const SERVER_URL = 'ws://137.184.236.245:9000'
 const INCREMENT = 1000
 const MAX_CLIENTS = INCREMENT * 10
 const TARGET_SAMPLE_SIZE = MAX_CLIENTS
+const MESSAGE_INTERVAL = 50
 const MESSAGE = JSON.stringify({ event: 'ping' })
-// all time variables are in the unit of milliseconds
 
 const clients = new Set()
 const connectTime = new Map()
@@ -77,10 +77,13 @@ async function main() {
   await setupTest(targetClientSize)
   connectingRoom.on('room cleared', () => {
     console.log(`All clients connected, current count: ${clients.size}`)
-    clients.forEach((ws) => {
+    clients.forEach(async (ws) => {
       messagingRoom.add(ws.id)
       ws.lastMessageSentAt = Date.now()
       ws.send(MESSAGE)
+      await new Promise((resolve) => {
+        setTimeout(resolve, MESSAGE_INTERVAL)
+      })
     })
   })
   messagingRoom.on('room cleared', async () => {
