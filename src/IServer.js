@@ -1,13 +1,12 @@
 const EventEmitter = require('events')
+const https = require('https')
+const http = require('http')
+const { readFileSync } = require('fs')
 const { WebSocketServer } = require('ws')
 const { v4 } = require('uuid')
 const debug = require('debug')
 const wssDebug = debug('wss')
 const clientDebug = debug('client')
-
-const EVENT_PAYLOAD = {
-  pong: JSON.stringify({ event: 'pong' }),
-}
 
 module.exports = class IServer extends EventEmitter {
   constructor(props) {
@@ -15,7 +14,17 @@ module.exports = class IServer extends EventEmitter {
     this.rooms = new Map()
     this.clients = new Map()
     this.connections = new Set()
-    this.wss = new WebSocketServer(props)
+    this.server = http.createServer()
+    if (props.env === 'production') {
+      this.server = https.createServer({
+        cert: readFileSync('/etc/letsencrypt/live/ws.savvyuni.com.cn/fullchain.pem'),
+        key: readFileSync('/etc/letsencrypt/live/ws.savvyuni.com.cn/privkey.pem')
+      })
+    }
+  }
+
+  listen(port) {
+    this.wss = new WebSocketServer({ server: this.server })
     this.wss.on('connection', (socket, req) =>
       this._onSocketConnection(socket, req)
     )
@@ -23,6 +32,7 @@ module.exports = class IServer extends EventEmitter {
       wssDebug(`Server Error: ${error}`)
       this.emit('error', error)
     })
+    this.server.listen(port)
   }
 
   _onSocketConnection(socket, req) {
@@ -53,7 +63,10 @@ module.exports = class IServer extends EventEmitter {
     socket.on('message', (data) => {
       clientDebug('Received message %s from %s', data, socket.id)
       const message = JSON.parse(data)
-      if (message.event === 'connected') {
+      if (message.event === 'ping') {
+        this.connections.add(socket.id)
+        socket.emit('pong')
+      } else if (message.event === 'connected') {
         const room = message.student
         if (!this.rooms.has(room)) {
           this.rooms.set(room, new Set([socket.id]))
