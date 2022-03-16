@@ -6,7 +6,7 @@ const { v4 } = require('uuid')
 const debug = require('debug')
 const wssDebug = debug('wss')
 const clientDebug = debug('client')
-const { createServer } =
+const protocol =
   process.env.NODE_ENV === 'production' ? require('https') : require('http')
 
 module.exports = class IServer extends EventEmitter {
@@ -15,16 +15,23 @@ module.exports = class IServer extends EventEmitter {
     this.rooms = new Map()
     this.clients = new Map()
     this.connections = new Set()
-    const serverConfig = {}
+    const options = {}
     if (process.env.NODE_ENV === 'production') {
-      serverConfig.cert = readFileSync(
+      options.cert = readFileSync(
         '/etc/letsencrypt/live/ws.savvyuni.com.cn/fullchain.pem'
       )
-      serverConfig.key = readFileSync(
+      options.key = readFileSync(
         '/etc/letsencrypt/live/ws.savvyuni.com.cn/privkey.pem'
       )
     }
-    this.server = createServer(serverConfig)
+    this.server = protocol.createServer(options, (req, res) => {
+      if (req.url === '/clientCount') {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(this.clients.size))
+      }
+      res.writeHead(404)
+      res.end()
+    })
     this.server.on('error', (error) => {
       console.error(error)
     })
