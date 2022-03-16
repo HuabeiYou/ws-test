@@ -18,10 +18,10 @@ module.exports = class IServer extends EventEmitter {
     const options = {}
     if (process.env.NODE_ENV === 'production') {
       options.cert = readFileSync(
-        '/etc/letsencrypt/live/ws.savvyuni.com.cn/fullchain.pem'
+        '/etc/letsencrypt/live/ws.savvyuni.com.cn/ws.savvyuni.com.cn.pem'
       )
       options.key = readFileSync(
-        '/etc/letsencrypt/live/ws.savvyuni.com.cn/privkey.pem'
+        '/etc/letsencrypt/live/ws.savvyuni.com.cn/ws.savvyuni.com.cn.key'
       )
     }
     this.server = protocol.createServer(options, (req, res) => {
