@@ -24,8 +24,9 @@ module.exports = class IServer extends EventEmitter {
         '/etc/letsencrypt/live/ws.savvyuni.com.cn/privkey.pem'
       )
     }
-    this.server = createServer({
-      serverConfig,
+    this.server = createServer(serverConfig)
+    this.server.on('error', (error) => {
+      console.error(error)
     })
   }
 
@@ -35,8 +36,7 @@ module.exports = class IServer extends EventEmitter {
       this._onSocketConnection(socket, req)
     )
     this.wss.on('error', (error) => {
-      wssDebug(`Server Error: ${error}`)
-      this.emit('error', error)
+      wssDebug(`WSServer Error: ${error}`)
     })
     this.server.on('upgrade', (request, socket, head) => {
       const host = request.headers?.host || ''
