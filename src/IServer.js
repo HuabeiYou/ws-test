@@ -1,12 +1,13 @@
+require('dotenv').config()
 const EventEmitter = require('events')
-const https = require('https')
-const http = require('http')
 const { readFileSync } = require('fs')
 const { WebSocketServer } = require('ws')
 const { v4 } = require('uuid')
 const debug = require('debug')
 const wssDebug = debug('wss')
 const clientDebug = debug('client')
+const { createServer } =
+  process.env.NODE_ENV === 'production' ? require('https') : require('http')
 
 module.exports = class IServer extends EventEmitter {
   constructor(props) {
@@ -14,23 +15,39 @@ module.exports = class IServer extends EventEmitter {
     this.rooms = new Map()
     this.clients = new Map()
     this.connections = new Set()
-    this.server = http.createServer()
-    if (props.env === 'production') {
-      this.server = https.createServer({
-        cert: readFileSync('/etc/letsencrypt/live/ws.savvyuni.com.cn/fullchain.pem'),
-        key: readFileSync('/etc/letsencrypt/live/ws.savvyuni.com.cn/privkey.pem')
-      })
+    const serverConfig = {}
+    if (process.env.NODE_ENV === 'production') {
+      serverConfig.cert = readFileSync(
+        '/etc/letsencrypt/live/ws.savvyuni.com.cn/fullchain.pem'
+      )
+      serverConfig.key = readFileSync(
+        '/etc/letsencrypt/live/ws.savvyuni.com.cn/privkey.pem'
+      )
     }
+    this.server = createServer({
+      serverConfig,
+    })
   }
 
   listen(port) {
-    this.wss = new WebSocketServer({ server: this.server })
+    this.wss = new WebSocketServer({ noServer: true })
     this.wss.on('connection', (socket, req) =>
       this._onSocketConnection(socket, req)
     )
     this.wss.on('error', (error) => {
       wssDebug(`Server Error: ${error}`)
       this.emit('error', error)
+    })
+    this.server.on('upgrade', (request, socket, head) => {
+      const host = request.headers?.host || ''
+      if (!host.includes('savvyuni.com') && !host.includes('localhost')) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+        socket.destroy()
+        return
+      }
+      this.wss.handleUpgrade(request, socket, head, (ws) => {
+        this.wss.emit('connection', ws, request)
+      })
     })
     this.server.listen(port)
   }

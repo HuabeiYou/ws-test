@@ -6,14 +6,14 @@ const port = process.env.PORT || 9000
 
 if (process.env.NODE_ENV === 'test') {
   start().then(() => {
-    const server = new IServer({ env: 'test' })
+    const server = new IServer()
     server.on('error', (err) => {
       console.error(err)
     })
     server.listen(port)
   })
 } else {
-  const server = new IServer({ env: process.env.NODE_ENV })
+  const server = new IServer()
   server.on('error', (err) => {
     console.error(err)
   })
